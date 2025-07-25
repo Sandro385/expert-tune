@@ -1,14 +1,23 @@
-FROM ghcr.io/huggingface/text-generation-inference:2.1
+# Use a lightweight Python base image suitable for running Streamlit
+FROM python:3.11-slim AS base
 
-# Copy application code into the container
-COPY . /app
+# Set the working directory in the container
 WORKDIR /app
 
-# Install Python dependencies
-RUN pip install -r requirements.txt
+# Install Python dependencies first to leverage Docker layer caching
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
 
-# Expose the Streamlit port
-EXPOSE 7860
+# Copy the rest of the application code into the container
+COPY . .
 
-# Start the Streamlit application
-CMD ["streamlit", "run", "app.py", "--server.port=7860", "--server.address=0.0.0.0"]
+# Expose the port Render will connect to. Render automatically sets a
+# PORT environment variable; Streamlit should bind to that port and
+# 0.0.0.0 so that it is reachable externally. We choose 10000 as a
+# default but Streamlit will override it at runtime via the $PORT env.
+EXPOSE 10000
+
+# Run the Streamlit application. We use bash -c so that the $PORT
+# environment variable injected by Render is expanded at runtime. If
+# PORT is unset locally, Streamlit will default to 8501.
+CMD ["bash", "-c", "streamlit run app.py --server.port=$PORT --server.address=0.0.0.0"]

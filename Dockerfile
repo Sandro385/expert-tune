@@ -6,7 +6,16 @@ WORKDIR /app
 
 # Install Python dependencies first to leverage Docker layer caching
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+
+# Install system packages required for certain Python libraries.
+# We install git so that pip can install packages directly from GitHub
+# (unsloth is installed via a git URL) and build-essential to compile
+# any wheels that require compilation. After installation, we clean up
+# apt lists to reduce image size.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends git build-essential \
+    && rm -rf /var/lib/apt/lists/* \
+    && pip install --no-cache-dir -r requirements.txt
 
 # Copy the rest of the application code into the container
 COPY . .

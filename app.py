@@ -68,17 +68,29 @@ name, auth_status, username = st.session_state.auth.login("sidebar")
 # "რეგისტრაცია" button reveals two input fields and a second button
 # to submit the new account.  The user's password is hashed before
 # being stored.
+# Registration form (persist state across reruns).
+if "register" not in st.session_state:
+    st.session_state.register = False
+
 if st.sidebar.button("რეგისტრაცია"):
-    # Text inputs for new account details
-    new_user = st.sidebar.text_input("მომხმარებელი")
-    new_pwd = st.sidebar.text_input("პაროლი", type="password")
-    if st.sidebar.button("დარეგისტრირდი"):
+    # Toggle the registration form flag on click
+    st.session_state.register = not st.session_state.register
+
+if st.session_state.register:
+    # Persistent text inputs with keys so values survive reruns
+    new_user = st.sidebar.text_input("მომხმარებელი", key="reg_user")
+    new_pwd  = st.sidebar.text_input("პაროლი", type="password", key="reg_pwd")
+    if st.sidebar.button("დარეგისტრირდი", key="register_submit"):
         if new_user and new_pwd:
             pwd_hash = hashlib.sha256(new_pwd.encode()).hexdigest()
             add_user(new_user, pwd_hash)
             st.sidebar.success("დარეგისტრირდით! გაიარეთ ლოგინი.")
+            # Reset registration state after success
+            st.session_state.register = False
+            st.session_state.reg_user = ""
+            st.session_state.reg_pwd = ""
         else:
-            st.sidebar.error("გთხოვთ შეავსოთ ორივე ველი.")
+            st.sidebar.warning("გთხოვთ შეავსოთ ორივე ველი.")
 
 
 # -----------------------------------------------------------------------------

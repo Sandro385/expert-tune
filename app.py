@@ -40,10 +40,17 @@ init_db()
 # SQLite, but for demonstration purposes we do not pre‑populate the
 # authenticator.
 if "auth" not in st.session_state:
+    # Initialise the authenticator.  According to the Streamlit‑Authenticator
+    # API, the parameters are: credentials, cookie_name, cookie_key, and
+    # cookie_expiry_days.  In earlier versions this parameter was named
+    # "key", but newer releases expect "cookie_key".  Provide a random
+    # secret string to sign the re‑authentication cookie.  See docs for
+    # details: https://pypi.org/project/streamlit-authenticator/
     st.session_state.auth = stauth.Authenticate(
         credentials={"usernames": {}},
         cookie_name="expert_tune",
-        key="abc123",
+        cookie_key="abc123",
+        cookie_expiry_days=30.0,
     )
 
 # Render the login form in the sidebar.  The login call returns

@@ -89,7 +89,7 @@ def save_msg(username: str, domain: str, role: str, content: str) -> None:
 
     Args:
         username: The user who owns this conversation.
-        domain: The selected domain (e.g. "უირისტი").
+        domain: The selected domain (e.g. "იურისტი").
         role: Either "user" or "assistant".
         content: The message content.
     """
@@ -122,3 +122,22 @@ def load_history(username: str, domain: str):
     return [
         {"role": role, "content": content} for role, content in rows
     ]
+
+
+def get_users():
+    """Return all registered users and their password hashes.
+
+    This helper queries the ``users`` table and returns a list of
+    tuples containing the username and the corresponding password
+    hash.  It is used by the application to build the
+    ``credentials`` dictionary required by ``streamlit_authenticator``.
+
+    Returns:
+        List[Tuple[str, str]]: A list of ``(username, password_hash)``
+        pairs.  If there are no users in the database, the list will
+        be empty.
+    """
+    conn = sqlite3.connect(DB)
+    rows = conn.execute("SELECT username, password_hash FROM users").fetchall()
+    conn.close()
+    return rows

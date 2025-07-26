@@ -102,12 +102,19 @@ if st.session_state.register:
             pwd_hash = hashlib.sha256(new_pwd.encode()).hexdigest()
             # Persist the new user to the database
             add_user(new_user, pwd_hash)
-            # Also update the in-memory credentials used by the authenticator
-            st.session_state.auth.credentials["usernames"][new_user] = {
-                "name": new_user,
-                "email": f"{new_user}@example.com",
-                "password": pwd_hash,
-            }
+            # Rebuild the authenticator with updated credentials.  The
+            # Authenticate object does not expose a public ``credentials``
+            # attribute in newer versions, so we cannot mutate it
+            # directly.  Instead, recreate the authenticator using the
+            # fresh credentials from the database.  This will also
+            # reset any login state, requiring the user to log in again.
+            new_creds = build_credentials()
+            st.session_state.auth = stauth.Authenticate(
+                credentials=new_creds,
+                cookie_name="expert_tune",
+                cookie_key="abc123",
+                cookie_expiry_days=30.0,
+            )
             st.sidebar.success("დარეგისტრირდით! გაიარეთ ლოგინი.")
             # Reset registration state after success
             st.session_state.register = False

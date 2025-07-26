@@ -20,13 +20,30 @@ import streamlit as st
 import streamlit_authenticator as stauth
 from openai import OpenAI
 
-from auth_db import init_db, add_user, save_msg, load_history
+from auth_db import init_db, add_user, save_msg, load_history, get_users
 
 # Initialise the SQLite database.  This creates the necessary tables
 # on the first run.  If the database file resides on a persistent
 # volume (e.g. Render's Disk), chat history and user accounts will
 # survive across deployments.
 init_db()
+
+# Build the credentials dictionary from the SQLite users table.  The
+# streamlit-authenticator package expects a nested dictionary of the form
+# {"usernames": {username: {"name": <display_name>, "email": <email>, "password": <password_hash>}}}
+def build_credentials():
+    creds = {"usernames": {}}
+    for uname, pwd_hash in get_users():
+        # For this simple application we use the username for both the
+        # display name and the email field.  If you wish to store
+        # additional metadata (e.g. proper name or email) you can do
+        # that in the database and populate it here.
+        creds["usernames"][uname] = {
+            "name": uname,
+            "email": f"{uname}@example.com",
+            "password": pwd_hash,
+        }
+    return creds
 
 
 # -----------------------------------------------------------------------------
@@ -40,14 +57,14 @@ init_db()
 # SQLite, but for demonstration purposes we do not pre‑populate the
 # authenticator.
 if "auth" not in st.session_state:
-    # Initialise the authenticator.  According to the Streamlit‑Authenticator
-    # API, the parameters are: credentials, cookie_name, cookie_key, and
-    # cookie_expiry_days.  In earlier versions this parameter was named
-    # "key", but newer releases expect "cookie_key".  Provide a random
-    # secret string to sign the re‑authentication cookie.  See docs for
-    # details: https://pypi.org/project/streamlit-authenticator/
+    # Build a fresh credentials dictionary from the database.  This ensures
+    # that any previously registered users are recognised by
+    # streamlit‑authenticator.  The credentials dictionary must be
+    # reconstructed at runtime because the authenticator stores it only in
+    # memory and does not persist it across reruns.
+    creds = build_credentials()
     st.session_state.auth = stauth.Authenticate(
-        credentials={"usernames": {}},
+        credentials=creds,
         cookie_name="expert_tune",
         cookie_key="abc123",
         cookie_expiry_days=30.0,
@@ -79,11 +96,18 @@ if st.sidebar.button("რეგისტრაცია"):
 if st.session_state.register:
     # Persistent text inputs with keys so values survive reruns
     new_user = st.sidebar.text_input("მომხმარებელი", key="reg_user")
-    new_pwd  = st.sidebar.text_input("პაროლი", type="password", key="reg_pwd")
+    new_pwd = st.sidebar.text_input("პაროლი", type="password", key="reg_pwd")
     if st.sidebar.button("დარეგისტრირდი", key="register_submit"):
         if new_user and new_pwd:
             pwd_hash = hashlib.sha256(new_pwd.encode()).hexdigest()
+            # Persist the new user to the database
             add_user(new_user, pwd_hash)
+            # Also update the in-memory credentials used by the authenticator
+            st.session_state.auth.credentials["usernames"][new_user] = {
+                "name": new_user,
+                "email": f"{new_user}@example.com",
+                "password": pwd_hash,
+            }
             st.sidebar.success("დარეგისტრირდით! გაიარეთ ლოგინი.")
             # Reset registration state after success
             st.session_state.register = False
